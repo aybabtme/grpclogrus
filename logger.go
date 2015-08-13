@@ -54,11 +54,11 @@ func (l *log) tryParseF(format string, args ...interface{}) (fields logrus.Field
 		return l.defaultParsef(format, args...)
 	}
 	defer func() {
-		if recover() != nil {
+		if e := recover(); e != nil {
 			fields, message = l.defaultParsef(format, args...)
 		}
 	}()
-	fields, message = rule(args)
+	fields, message = rule(args...)
 	return fields, message
 }
 
@@ -77,7 +77,7 @@ func (l *log) tryParseln(args ...interface{}) (fields logrus.Fields, message str
 	if !ok {
 		return l.defaultParsef(format, args...)
 	}
-	fields, message = rule(args)
+	fields, message = rule(args...)
 	return fields, message
 }
 
@@ -90,6 +90,11 @@ func (l *log) defaultParsef(format string, args ...interface{}) (logrus.Fields, 
 }
 
 var parsefRules = map[string]func(args ...interface{}) (logrus.Fields, string){
+
+	"grpc: ClientConn.resetTransport failed to create client transport: %v; Reconnecting to %q": func(args ...interface{}) (logrus.Fields, string) {
+		return logrus.Fields{"package": "grpc", "err": args[0], "addr": args[1]}, "ClientConn.resetTransport failed to create client transport, reconnecting"
+	},
+
 	"%v compleled with error code %d, want %d": func(args ...interface{}) (logrus.Fields, string) {
 		return logrus.Fields{"stream": args[0], "grpc.Code(err)": args[1], "codes.Canceled": args[2]}, "completed with wrong error code"
 	},
@@ -167,9 +172,6 @@ var parsefRules = map[string]func(args ...interface{}) (logrus.Fields, string){
 	},
 	"Got user name %q, want %q.": func(args ...interface{}) (logrus.Fields, string) {
 		return logrus.Fields{"got.user": args[0], "want.user": args[1]}, "wrong user name"
-	},
-	"grpc: ClientConn.resetTransport failed to create client transport: %v; Reconnecting to %q": func(args ...interface{}) (logrus.Fields, string) {
-		return logrus.Fields{"package": "grpc", "err": args[0], "cc.target": args[1]}, "ClientConn.resetTransport failed to create client transport, reconnecting"
 	},
 	"grpc: Server.RegisterService found duplicate service registration for %q": func(args ...interface{}) (logrus.Fields, string) {
 		return logrus.Fields{"package": "grpc", "service.name": args[0]}, "Server.RegisterService found duplicate service registration"
